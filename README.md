@@ -1,12 +1,13 @@
 # press-skill
 
-Simple desktop auto key presser built with Tkinter.
+Simple desktop key automation app built with Tkinter.
 
 ## Features
 
-- Choose a single key to auto-press
+- Choose a single key to send
 - Set press interval in seconds
-- Start/stop from UI buttons
+- Target a window by part of its title
+- Briefly focus the target window, press the key, and restore the previous focus
 - Global hotkey `F8` to toggle start/stop
 
 ## Requirements
@@ -30,3 +31,4 @@ uv run python main.py
 
 - Run terminal as Administrator if global hotkeys do not register.
 - Only single-character keys are currently supported.
+- The window match uses the first visible window whose title contains the text you entered.
