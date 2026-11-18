@@ -1,5 +1,4 @@
 import threading
-import time
 import tkinter as tk
 from tkinter import messagebox
 
@@ -15,6 +14,7 @@ class AutoPressApp:
         self.root.resizable(False, False)
 
         self.running = False
+        self.stop_event = threading.Event()
         self.worker: threading.Thread | None = None
         self.controller = Controller()
 
@@ -23,7 +23,7 @@ class AutoPressApp:
         self.status_var = tk.StringVar(value="Status: Stopped")
 
         self._build_ui()
-        keyboard.add_hotkey("F1", self.toggle_running)
+        keyboard.add_hotkey("F1", lambda: self.root.after(0, self.toggle_running))
 
     def _build_ui(self) -> None:
         frame = tk.Frame(self.root, padx=16, pady=16)
@@ -60,8 +60,9 @@ class AutoPressApp:
             return
 
         key = self.key_var.get().strip()
-        if not key:
-            messagebox.showerror("Invalid key", "Please provide a key (example: x).")
+        normalized_key = key.lower()
+        if len(normalized_key) != 1:
+            messagebox.showerror("Invalid key", "Please provide a single key (example: x).")
             return
 
         try:
@@ -75,15 +76,17 @@ class AutoPressApp:
             return
 
         self.running = True
-        self.status_var.set(f"Status: Running ({key} every {interval}s)")
+        self.stop_event.clear()
+        self.status_var.set(f"Status: Running ({normalized_key} every {interval}s)")
         self.worker = threading.Thread(
-            target=self._run_presser, args=(key, interval), daemon=True
+            target=self._run_presser, args=(normalized_key, interval), daemon=True
         )
         self.worker.start()
 
     def stop(self) -> None:
         self.running = False
-        self.status_var.set("Status: Stopped")
+        self.stop_event.set()
+        self.root.after(0, lambda: self.status_var.set("Status: Stopped"))
 
     def toggle_running(self) -> None:
         if self.running:
@@ -92,19 +95,11 @@ class AutoPressApp:
         self.start()
 
     def _run_presser(self, key: str, interval: float) -> None:
-        normalized = key.strip().lower()
-        if len(normalized) != 1:
-            self.root.after(
-                0,
-                lambda: messagebox.showerror("Invalid key", f"Unsupported key: {key}"),
-            )
-            self.stop()
-            return
-
-        while self.running:
-            self.controller.press(normalized)
-            self.controller.release(normalized)
-            time.sleep(interval)
+        while not self.stop_event.is_set():
+            self.controller.press(key)
+            self.controller.release(key)
+            if self.stop_event.wait(interval):
+                break
 
 
 def main() -> None:
